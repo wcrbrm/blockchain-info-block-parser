@@ -6,13 +6,10 @@ import $ivy.`com.typesafe.akka::akka-stream:2.5.16`
 import $ivy.`com.lightbend.akka::akka-stream-alpakka-file:1.0-M1`
 
 object Gzip {
-  import java.io.{ByteArrayInputStream}
-  import java.util.zip.{GZIPInputStream}
   import scala.util.Try
-
   def decompress(compressed: Array[Byte]): Option[String] =
     Try {
-      val inputStream = new GZIPInputStream(new ByteArrayInputStream(compressed))
+      val inputStream = new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(compressed))
       scala.io.Source.fromInputStream(inputStream).mkString
     }.toOption
 }
