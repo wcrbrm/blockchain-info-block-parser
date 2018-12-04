@@ -5,6 +5,15 @@ import $ivy.`com.typesafe.akka::akka-actor:2.5.16`
 import $ivy.`com.typesafe.akka::akka-stream:2.5.16`
 import $ivy.`com.lightbend.akka::akka-stream-alpakka-file:1.0-M1`
 
+object Gzip {
+  import scala.util.Try
+  def decompress(compressed: Array[Byte]): Option[String] =
+    Try {
+      val inputStream = new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(compressed))
+      scala.io.Source.fromInputStream(inputStream).mkString
+    }.toOption
+}
+
 def parseBlock(f: java.io.File) {
   import java.text.SimpleDateFormat
   import scala.collection.mutable.{ ArrayBuffer, LinkedHashMap }
@@ -31,16 +40,24 @@ def parseBlock(f: java.io.File) {
   println(s"[${timeIso}] ${height} ${amountsInJson}")
 }
 
+implicit val system = akka.actor.ActorSystem("files-walker")
+implicit val mat = akka.stream.ActorMaterializer()
 
-import akka.stream.alpakka.file.scaladsl.Directory
-import akka.stream.scaladsl.{Sink, Source}
-import akka.actor.ActorSystem
-import akka.stream.ActorMaterializer
+try {
+  import java.nio.file.Paths
+  val dir = Paths.get(sys.env("FOLDER"))
 
-val dir = java.nio.file.Paths.get("./")
-implicit val system = ActorSystem("files-walker")
-implicit val mat = ActorMaterializer()
+  implicit val ec = system.dispatcher
+  import akka.stream.alpakka.file.scaladsl.Directory
 
-Directory.walk(dir).filter(_.toString.endsWith("json")).runForeach(println)
+  println("STARTED")
+  Directory.walk(dir).
+    filter(_.toString.endsWith(".gz")).
+    take(5).
+    runForeach(println).
+    onComplete(_ => println("FINISHED"))
 
+} catch {
+  case e: java.util.NoSuchElementException => println("FOLDER system variable was not found") 
+}
 
