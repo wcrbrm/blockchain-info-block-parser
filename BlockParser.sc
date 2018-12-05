@@ -6,10 +6,11 @@ import $ivy.`com.typesafe.akka::akka-stream:2.5.16`
 import $ivy.`com.lightbend.akka::akka-stream-alpakka-file:1.0-M1`
 
 object Gzip {
-  import scala.util.Try
-  def decompress(compressed: Array[Byte]): Option[String] =
-    Try {
-      val inputStream = new java.util.zip.GZIPInputStream(new java.io.ByteArrayInputStream(compressed))
+  import java.io.FileInputStream
+  import java.util.zip.GZIPInputStream
+  def decompress(f: java.io.File): Option[String] =
+    scala.util.Try {
+      val inputStream = new GZIPInputStream(new FileInputStream(f))
       scala.io.Source.fromInputStream(inputStream).mkString
     }.toOption
 }
@@ -18,6 +19,7 @@ import akka.stream.alpakka.file.scaladsl.Directory
 import akka.stream.scaladsl.{Sink, Source}
 import akka.actor.{ Actor, ActorLogging, Props, ActorSystem }
 import akka.stream.ActorMaterializer
+import akka.pattern.ask
 
 implicit val system = ActorSystem("walker")
 implicit val mat = ActorMaterializer()
@@ -33,100 +35,99 @@ case class DateAggregation(date: String) extends Actor with ActorLogging {
   import scala.collection.mutable.HashMap
 
   val vals = new HashMap[Int, Int]()
-  override def preStart(): Unit = log.info("DateAggregation actor {} started", date)
-  override def postStop(): Unit = log.info("DateAggregation actor {} stopped", date)
   override def receive: Receive = {
     case Collect(values) => 
       log.info(s"DateAggregation ${date} Collect received {values} (from ${sender()})")
   }
 }
 
+case class Block(jsonStr: String) {
+  import java.text.SimpleDateFormat
+  import scala.collection.mutable.{ ArrayBuffer, LinkedHashMap }
+
+  val json: Js.Value = ujson.read(jsonStr)
+  val block: LinkedHashMap[String, Js.Value] = json("blocks").arr(0).obj
+  val hash: String = block.get("hash").get.str
+  val prev_block: String = block.get("prev_block").get.str
+  val height: Int = block.get("height").get.num.toInt
+  var dtf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+  val time: Long = block.get("time").get.num.toLong
+  val timeIso: String = dtf.format(time * 1000)
+  val dateIso: String = timeIso.substring(0, 10)
+  val tx: ArrayBuffer[Js.Value] = block.get("tx").get.arr
+  val maxValue: Int = 999
+
+  // a little FP kung fu to show amounts spectre, with limitation on transaction amount
+  val amounts: Map[Int, Int] = tx.
+    flatMap(_.obj.get("out").get.arr).
+    map(_.obj.get("value").get.num.toInt).
+    filter(_ <= maxValue).filter(_ > 0).
+    groupBy(x => x).filter{ case (k,v) => v.size > 1 }.mapValues(_.size)
+}
+
 object JsonFileReader {
-  def props(filename: String): Props = Props(new JsonFileReader(filename))
-  final case class Read(json: String)
+  def props(blockname: String): Props = Props(new JsonFileReader(blockname))
+  final case class ParseJson(json: String)
 }
-case class JsonFileReader(filename: String) extends Actor with ActorLogging {
+case class JsonFileReader(blockname: String) extends Actor with ActorLogging {
   import JsonFileReader._
-  override def preStart(): Unit = log.info("JsonFileReader actor '{}' started", filename)
-  override def postStop(): Unit = log.info("JsonFileReader actor '{}' stopped", filename)
-
   override def receive: Receive = {
-    case Read(json) => 
+    case ParseJson(json) => 
       log.info(s"Reading JSON: ${json.length} bytes (from ${sender()})")
+
+      val block = Block(json)
+      val amountsInJson: String = upickle.default.writeJs(block.amounts).toString
+      log.info(s"[${block.timeIso}]\tdate=${block.dateIso}\theight=${block.height}\t${amountsInJson}")
+
+      val dtAggregator = system.actorOf(DateAggregation.props(block.dateIso), block.dateIso)
+      dtAggregator ! DateAggregation.Collect(block.amounts)
+
+      sender() ! blockname
+      self ! akka.actor.PoisonPill
   }
 
-  def parseBlock(f: java.io.File): Map[Int, Int] = {
-    import java.text.SimpleDateFormat
-    import scala.collection.mutable.{ ArrayBuffer, LinkedHashMap }
-
-    val json: Js.Value = read(f)
-    val block: LinkedHashMap[String, Js.Value] = json("blocks").arr(0).obj
-    val hash: String = block.get("hash").get.str
-    val prev_block: String = block.get("prev_block").get.str
-    val height: Int = block.get("height").get.num.toInt
-    var dtf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
-    val time: Long = block.get("time").get.num.toLong
-    val timeIso: String = dtf.format(time * 1000)
-    val tx: ArrayBuffer[Js.Value] = block.get("tx").get.arr
-    val maxValue: Int = 999
-
-    // a little FP kung fu to show amounts spectre, with limitation on transaction amount
-    val amounts: Map[Int, Int] = tx.
-      flatMap(_.obj.get("out").get.arr).
-      map(_.obj.get("value").get.num.toInt).
-      filter(_ <= maxValue).filter(_ > 0).
-      groupBy(x => x).filter{ case (k,v) => v.size > 1 }.mapValues(_.size)
-    
-    val amountsInJson: String = upickle.default.writeJs(amounts).toString
-    println(s"[${timeIso}] ${height} ${amountsInJson}")
-    amounts
-  }
 }
 
-object BlockFileReader {
-  case object Ack
-  case object Init
-  case object Completed
-  final case class Failure(ex: Throwable)
-}
-class BlockFileReader extends Actor with ActorLogging {
-  import BlockFileReader._
-  override def receive: Receive = {
-    // case filename: String => 
-    //   log.info(s"BlockFileReader received '${filename}' (from ${sender()})")
-    //   sender() ! Ack // ack to allow the stream to proceed sending more elements
-    case Init =>
-      log.info("Stream initialized ${filename}")
-      sender() ! Ack // ack to allow the stream to proceed sending more elements
-    case Completed =>
-      log.info("Stream completed!")
-    case Failure(ex) =>
-      log.error(ex, "Stream failed!")
-  }
-}
-
-
-// actor to process json file
-
-val folder = scala.util.Properties.envOrElse("FOLDER", "./")
+// actor to process json files
+val folder = scala.util.Properties.envOrElse("BLOCKS_FOLDER", "./")
 val dir = java.nio.file.Paths.get(folder)
-
 // val actorDateAggregation = system.actorOf(DateAggregation.props("2018-02-01"))
-// val actorJsonFileReader = system.actorOf(JsonFileReader.props("example"))
 
-val actorReader = system.actorOf(Props[BlockFileReader], "block-file-reader")
-val sink = Sink.actorRefWithAck(
-  actorReader,
-  onInitMessage = BlockFileReader.Init,
-  ackMessage = BlockFileReader.Ack,
-  onCompleteMessage = BlockFileReader.Completed,
-  onFailureMessage = BlockFileReader.Failure
-)
+val cores = Math.max(java.lang.Runtime.getRuntime.availableProcessors, 1)
+def now = java.time.LocalTime.now.toString
+val t0 = System.nanoTime
+println(s"\n\n[${now}] STARTED in ${dir}, using ${cores} cores")
 
-println("STARTED in " + dir)
-Directory.walk(dir).
-  filter(_.toString.endsWith(".json")).
-  take(5).
-  //runWith(sink)
-  runForeach(println).
-  onComplete(_ => println("FINISHED"))
+val res = Directory.walk(dir).
+  filter(x => (x.toString.endsWith(".gz") || x.toString.endsWith(".json"))).
+  take(6).
+  mapAsyncUnordered[String](cores) { file =>
+    val filename = file.toString
+    val blockname = filename.split("[\\\\/]").last.replace(".json", "").replace(".gz", "")
+    
+    import scala.concurrent.duration._
+    implicit val timeout = akka.util.Timeout(10.minutes)
+    
+    if (filename.endsWith(".gz")) {
+      println(s"[${now}] unzipping \t${filename} (${blockname})")
+      val json:String = Gzip.decompress(new java.io.File(filename)).get
+      println(s"[${now}] unzipped \t${filename}\t${json.length} bytes")
+
+      val actor = system.actorOf(JsonFileReader.props(blockname), blockname) 
+      (actor ? JsonFileReader.ParseJson(json)).mapTo[String]
+    } else {
+      scala.concurrent.Future {
+        if (filename.endsWith(".json")) {
+          println(s"[${now}] processing json \t${blockname}")
+          // todo... case when files are not zipped
+        } else {
+          println(s"[${now}] skipping \t${filename}")
+        }
+        blockname
+      }
+    }
+  } 
+  .runForeach(x => println(s"[${now}] finished block \t$x"))
+  .onComplete(_ => println(s"[${now}] FINISHED in " + ((System.nanoTime - t0) * 10e-10) + "s"))
+
+println(res.getClass)
