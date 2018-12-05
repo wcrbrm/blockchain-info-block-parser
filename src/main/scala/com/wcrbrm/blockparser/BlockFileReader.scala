@@ -17,7 +17,7 @@ case class BlockFileReader(filename: String) extends Actor with ActorLogging {
   val blockname = filename.split("[\\\\/]").last.replace(".json", "").replace(".gz", "")
   val spectre = filename.replace(filename.split("[\\\\/]").last, s"${blockname}.spectre")
   
-  val actorJsonReader = context.system.actorOf(JsonFileReader.props(blockname), s"jsonreader-${blockname}")  
+  val actorJsonReader = context.system.actorOf(JsonReaderActor.props(blockname), s"jsonreader-${blockname}")  
 
   import scala.concurrent.duration._
   implicit val timeout = akka.util.Timeout(60.minutes) // timeout on actor ask
@@ -29,7 +29,7 @@ case class BlockFileReader(filename: String) extends Actor with ActorLogging {
       if (unzipped.isDefined) {
         val json = unzipped.get
         //log.info(s"unzipped \t${filename}\t${json.length} bytes")
-        sender ! ((actorJsonReader ? JsonFileReader.ParseJson(json)).mapTo[String])
+        sender ! ((actorJsonReader ? JsonReaderActor.ParseJson(json)).mapTo[String])
       } else {
         log.warning(s"unzip failure \t${filename}")
         sender ! blockname

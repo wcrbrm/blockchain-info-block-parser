@@ -11,7 +11,7 @@ lazy val `blockparser` = project
   .settings(
     organization := "com.wcrbrm.blockparser",
     scalaVersion := "2.12.6",
-    scalacOptions in Compile ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls", "-Xlint"),
+    scalacOptions in Compile ++= Seq("-deprecation", "-feature", "-unchecked", "-Xlog-reflective-calls"), // "-Xlint"
     javacOptions in Compile ++= Seq("-Xlint:unchecked", "-Xlint:deprecation"),
     javaOptions in run ++= Seq("-Xms512m", "-Xmx2048m", "-Djava.library.path=./target/native"),
     libraryDependencies ++= Seq(
