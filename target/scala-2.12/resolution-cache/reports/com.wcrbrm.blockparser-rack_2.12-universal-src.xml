@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="ivy-report.xsl"?>
+<ivy-report version="1.0">
+	<info
+		organisation="com.wcrbrm.blockparser"
+		module="rack_2.12"
+		revision="32929828+20181205-1744"
+		conf="universal-src"
+		confs="compile, runtime, test, provided, optional, universal, universal-docs, universal-src, windows, docker, linux, rpm, debian, multi-jvm, compile-internal, runtime-internal, test-internal, plugin, pom, scala-tool"
+		date="20181205174455"/>
+	<dependencies>
+	</dependencies>
+</ivy-report>
