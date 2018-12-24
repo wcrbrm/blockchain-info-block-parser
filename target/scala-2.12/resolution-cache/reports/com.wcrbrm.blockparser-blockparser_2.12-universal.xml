@@ -4,10 +4,10 @@
 	<info
 		organisation="com.wcrbrm.blockparser"
 		module="blockparser_2.12"
-		revision="91081d1b+20181205-1837"
+		revision="fc3bd015+20181205-2257"
 		conf="universal"
 		confs="compile, runtime, test, provided, optional, universal, universal-docs, universal-src, windows, docker, linux, rpm, debian, multi-jvm, compile-internal, runtime-internal, test-internal, plugin, pom, scala-tool"
-		date="20181205183741"/>
+		date="20181205225722"/>
 	<dependencies>
 	</dependencies>
 </ivy-report>
