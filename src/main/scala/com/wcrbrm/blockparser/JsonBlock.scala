@@ -3,6 +3,17 @@ package com.wcrbrm.blockparser
 import java.text.SimpleDateFormat
 import scala.collection.mutable.{ ArrayBuffer, LinkedHashMap }
 import ujson._
+import scala.util.{ Try, Failure, Success }
+
+object IntOption {
+  def get(key: String): Option[Int] = {
+    Try(sys.env(key)) match {
+      case Failure(_) => None
+      case Success(v) if v.isEmpty => None 
+      case Success(v) => Some(v.toInt)
+    }  
+  } 
+}
 
 case class JsonBlock(jsonStr: String) {
   val json: Js.Value = ujson.read(jsonStr)
@@ -15,12 +26,14 @@ case class JsonBlock(jsonStr: String) {
   val timeIso: String = dtf.format(time * 1000)
   val dateIso: String = timeIso.substring(0, 10)
   val tx: ArrayBuffer[Js.Value] = block.get("tx").get.arr
-  val maxValue: Int = 999
+  val maxValue: Option[Int] = IntOption.get("MAX_VALUE")
+  val minValue: Option[Int] = IntOption.get("MIN_VALUE")
 
   // a little FP kung fu to show amounts spectre, with limitation on transaction amount
   val amounts: Map[Int, Int] = tx.
     flatMap(_.obj.get("out").get.arr).
     map(_.obj.get("value").get.num.toInt).
-    filter(_ <= maxValue).filter(_ > 0).
+    filter(x => (!maxValue.isDefined || maxValue.get >= x)).
+    filter(x => (!minValue.isDefined || minValue.get <= x)).
     groupBy(x => x).filter{ case (k,v) => v.size > 1 }.mapValues(_.size)
 }
