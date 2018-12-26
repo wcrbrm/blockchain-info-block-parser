@@ -30,10 +30,10 @@ case class JsonBlock(jsonStr: String) {
   val minValue: Option[Int] = IntOption.get("MIN_VALUE")
 
   // a little FP kung fu to show amounts spectre, with limitation on transaction amount
-  val amounts: Map[Int, Int] = tx.
-    flatMap(_.obj.get("out").get.arr).
-    map(_.obj.get("value").get.num.toInt).
-    filter(x => (!maxValue.isDefined || maxValue.get >= x)).
-    filter(x => (!minValue.isDefined || minValue.get <= x)).
-    groupBy(x => x).filter{ case (k,v) => v.size > 1 }.mapValues(_.size)
+  val amounts: Map[Int, Int] = tx
+    .flatMap(_.obj.get("out").get.arr)
+    .map(_.obj.get("value").get.num.toInt)
+    .filter(x => (!maxValue.isDefined || maxValue.get >= x))
+    .filter(x => (!minValue.isDefined || minValue.get <= x))
+    .groupBy(x => x).filter{ case (k,v) => v.size > 1 }.mapValues(_.size)
 }

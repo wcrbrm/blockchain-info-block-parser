@@ -6,7 +6,7 @@ import akka.pattern.ask
 import akka.actor.{ ActorSystem, Props }
 import scala.concurrent.duration._
 
-object Runner extends App {
+object Runner {
 
     implicit val system = ActorSystem("btc-blocks")
     implicit val mat = ActorMaterializer()
