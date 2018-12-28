@@ -18,6 +18,8 @@ lazy val `blockparser` = project
 
       "com.squareup.okhttp3" % "okhttp" % "3.12.1",
       "io.circe" %% "circe-core" % "0.10.0",
+      "io.circe" %% "circe-generic" % "0.10.0",
+      "io.circe" %% "circe-parser" % "0.10.0",
 
       "com.typesafe.akka" %% "akka-http" % akkaHttpVersion,
       "com.typesafe.akka" %% "akka-http-testkit" % akkaHttpVersion % Test,
