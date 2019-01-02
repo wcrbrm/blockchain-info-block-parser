@@ -34,7 +34,17 @@ lazy val `blockparser` = project
 
       "com.lightbend.akka" %% "akka-stream-alpakka-file" % "1.0-M1",
 
+     	"org.typelevel" %% "cats-core" % "1.5.0",
+       
+     	"com.squareup.okhttp3" % "okhttp" % "3.12.1",
+	    "io.circe" %% "circe-core" % "0.10.0",
+	    "io.circe" %% "circe-parser" % "0.10.0",
+	    "io.circe" %% "circe-generic" % "0.10.0",
+
       "org.scalatest" %% "scalatest" % "3.0.5" % Test,
+      "org.scalactic" %% "scalactic" % "3.0.5" % Test,
+	    "org.scalacheck" %% "scalacheck" % "1.14.0" % Test,
+
       "io.kamon" % "sigar-loader" % "1.6.6-rev002"
     ),
 

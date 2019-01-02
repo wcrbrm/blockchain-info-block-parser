@@ -24,3 +24,15 @@ case class JsonBlock(jsonStr: String) {
     filter(_ <= maxValue).filter(_ > 0).
     groupBy(x => x).filter{ case (k,v) => v.size > 1 }.mapValues(_.size)
 }
+
+case class LatestBlock(jsonStr: String) {
+  val json: Js.Value = ujson.read(jsonStr)
+  val block: LinkedHashMap[String, Js.Value] = json.obj
+  val height: Int = block.get("height").get.num.toInt
+  val blockIndex: Int = block.get("block_index").get.num.toInt
+  val time: Long = block.get("time").get.num.toLong
+  val hash: String = block.get("hash").get.str
+  def get() = {
+    Map("height" -> height, "block_index" -> blockIndex, "time" -> time, "hash" -> hash)
+  }
+}
