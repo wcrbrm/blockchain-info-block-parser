@@ -7,7 +7,7 @@ import akka.actor.{ ActorSystem, Props }
 import scala.concurrent.duration._
 import okhttp3._
 
-object Runner extends App {
+object Runner {
 
     implicit val system = ActorSystem("btc-blocks")
     implicit val mat = ActorMaterializer()
