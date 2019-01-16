@@ -39,8 +39,9 @@ lazy val `blockparser` = project
       "com.lihaoyi" %% "ammonite-ops" % "1.4.4",
 
       "com.lightbend.akka" %% "akka-stream-alpakka-file" % "1.0-M1",
-
      	"org.typelevel" %% "cats-core" % "1.5.0",
+
+      "fr.janalyse" %% "janalyse-ssh" % "0.10.3",
        
      	"com.squareup.okhttp3" % "okhttp" % "3.12.1",
 	    "io.circe" %% "circe-core" % "0.10.0",
@@ -56,5 +57,5 @@ lazy val `blockparser` = project
 
     fork in run := true,
     parallelExecution in Test := false,
-    mainClass in (Compile, run) := Some("com.wcrbrm.blockparser.Listener")
+    mainClass in (Compile, run) := Some("com.wcrbrm.blockparser.Runner")
   ).configs(MultiJvm)
