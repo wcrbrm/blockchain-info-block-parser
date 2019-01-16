@@ -2,12 +2,21 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 	"time"
 )
 
+
+type AmountsPacket struct {
+	Type string `json:"packet"`
+	Time int64 `json:"time"`
+	Hash string `json:"hash"`
+	Values []int64 `json:"values"`
+}
 type ErrorPacket struct {
 	Type string `json:"packet"`
 	Time int64 `json:"time"`
@@ -75,7 +84,7 @@ type TxOut struct {
 	Index int64 `json: "tx_index"`
 	Type  int `json: "type"`
 	Addr  string `json: "addr"`
-	Value int `json: "value"`
+	Value int64 `json: "value"`
 	N     int `json: "n"`
 	Script  string `json: "script"`
 }
@@ -108,6 +117,7 @@ type Block struct {
 	Tx []BlockTx `json: "tx"`
 }
 
+/*
 func getBlockByHash(hash string) (obj *Block, erro error) {
  	url := "https://blockchain.info/rawblock/hash/" + hash
  	timeout := time.Duration(20 * time.Second)
@@ -122,15 +132,53 @@ func getBlockByHash(hash string) (obj *Block, erro error) {
 		return nil, errDecode
 	}
     return res, nil
-}
+}*/
+
+type byValue []int64
+func (f byValue) Len() int { return len(f) }
+func (f byValue) Less(i, j int) bool { return f[i] < f[j] }
+func (f byValue) Swap(i, j int) { f[i], f[j] = f[j], f[i] }
 
 func main() {
-	// outputLatestBlockHeight()
-	var res Block
-	jsonFile, err := os.Open("./rawblock.json")
-	errorOutput("local:read", err)
-	errDecode := json.NewDecoder(jsonFile).Decode(&res)
-	errorOutput("json:decode", errDecode)
-	fmt.Println(res.Tx)
-	defer jsonFile.Close()
+	hashPtr := flag.String("hash", "", "block hash to be received")
+	verbose := flag.Bool("verbose", false, "verbosity")
+	flag.Parse()
+
+	if *hashPtr != "" {
+		var res Block
+		// response, err := os.Open("./rawblock.json")
+		// errorOutput("local:read", err)
+
+		url := "https://blockchain.info/rawblock/" + *hashPtr
+		if (*verbose) { fmt.Println("URL=" + url) }
+		timeout := time.Duration(10 * time.Second)
+		client := http.Client{Timeout: timeout}
+		response, err := client.Get(url)
+		errorOutput("remote:read", err)
+		defer response.Body.Close()
+		// defer response.Close()
+	
+		errDecode := json.NewDecoder(response.Body).Decode(&res)
+		errorOutput("json:decode", errDecode)
+	
+		var exists = struct{}{}
+		set := make(map[int64]struct{})
+		for _, tx := range res.Tx {
+			for _, out := range tx.Out {
+				if (out.Value > 10e8) {
+					_, contains := set[out.Value]
+					if (!contains) { set[out.Value] = exists }
+				}
+			}
+		}
+		values := make([]int64, 0, len(set))
+		for v := range set { values = append(values, v) }
+		sort.Sort(byValue(values))
+
+		str, _ := json.Marshal(&AmountsPacket{ "amounts", time.Now().Unix(), *hashPtr, values })
+		fmt.Println(string(str))
+
+	} else {
+		outputLatestBlockHeight()
+	}
 }
