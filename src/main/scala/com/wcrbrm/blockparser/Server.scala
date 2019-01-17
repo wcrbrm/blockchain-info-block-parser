@@ -1,6 +1,7 @@
 package com.wcrbrm.blockparser
 import io.circe._
 import io.circe.generic.semiauto._
+import fr.janalyse.ssh.{SSH, SSHIdentity, SSHOptions}
 
 case class Server(
    id: Option[String],
@@ -20,5 +21,17 @@ case class Server(
 object Server {
   implicit val serverDecoder: Decoder[Server] = deriveDecoder[Server]
   implicit val serverEncoder: Encoder[Server] = deriveEncoder[Server]
+
+  def getSession(server: Server): SSH = {
+    val settings = if (server.auth_method == "password") {
+      SSHOptions( host = server.ip, username = server.auth_user, password = server.auth_password )
+    } else if (server.auth_privateKey.isDefined) {
+      val identity = SSHIdentity(server.auth_privateKey.get)
+      SSHOptions( host = server.ip, username = server.auth_user, identities = List(identity) )
+    } else {
+      throw new Exception(s"Cannot get session for ${server.ip}")
+    }
+    SSH(settings)
+  }
 }
 

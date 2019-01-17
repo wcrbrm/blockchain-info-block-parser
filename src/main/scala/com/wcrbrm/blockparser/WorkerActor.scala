@@ -18,11 +18,13 @@ case class WorkerActor(server: Server, conn: SSH) extends Actor with ActorLoggin
   override def receive = {
     case UploadAgent =>
       if (!agentFile.exists) throw new Exception("Agent File was not found for uploading")
-      println("[" + server.ip + "] connected, uploading")
+
+      // WARNING: sender is wrong
+      log.info("[" + server.ip + "] connected, uploading. sender=", sender())
       conn.scp { case scp =>
         scp.send(agentFile, "/tmp/blockreader")
         conn.execute("chmod +x /tmp/blockreader")
-        println("[" + server.ip + "] " + conn.execute("uptime"))
+        log.info("[" + server.ip + "] " + conn.execute("uptime") + " for " + sender() )
       }
       sender ! GimmeWork
     case Work(work: String) =>

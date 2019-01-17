@@ -1,14 +1,15 @@
 package com.wcrbrm.blockparser
 
-import akka.stream.alpakka.file.scaladsl.Directory
-import akka.stream.ActorMaterializer
 import akka.pattern.ask
 import akka.actor.{ActorSystem, Props}
-import fr.janalyse.ssh.{SSH, SSHIdentity, SSHOptions}
+import akka.stream.alpakka.file.scaladsl.Directory
+import akka.stream.scaladsl.Sink
 
 import scala.util.Properties
 import scala.concurrent.duration._
-import okhttp3._
+import io.circe.parser._
+
+import scala.concurrent.Future
 
 object Runner extends App {
 
@@ -21,39 +22,36 @@ object Runner extends App {
     def secondsFrom = (t: Long) => (((System.nanoTime - t) * 10e-10) / 10) + "s"
     val t0 = System.nanoTime
 
-    val supervisor = system.actorOf(SupervisorActor.props(), "workers")
-    val fileName = Properties.envOrElse("FILE_HEADERS", "")
-    val headers = ChainHeader.getAll(fileName)
-
-    import io.circe.parser._
+    val starter = system.actorOf(SupervisorActor.props(), "workers")
     val serversJson = scala.io.Source.fromResource("servers.json").getLines.mkString("\n")
     val servers = decode[List[Server]](serversJson).right.getOrElse(Nil)
-
-    def getSession(server: Server): SSH = {
-        val settings = if (server.auth_method == "password") {
-            SSHOptions( host = server.ip, username = server.auth_user, password = server.auth_password )
-        } else if (server.auth_privateKey.isDefined) {
-            val identity = SSHIdentity(server.auth_privateKey.get)
-            SSHOptions( host = server.ip, username = server.auth_user, identities = List(identity) )
-        } else {
-            throw new Exception(s"Cannot get session for ${server.ip}")
-        }
-        SSH(settings)
-    }
-
-    val actors = servers.take(2).zipWithIndex.flatMap { case (server, index) =>
+    val actors = servers.take(3).zipWithIndex.flatMap { case (server, index) =>
         try {
-            val ssh = getSession(server)
-            val actor = supervisor ? WorkerActor.NewWorker(index, server, ssh)
+            val ssh = Server.getSession(server)
+            val actor = starter ? WorkerActor.NewWorker(index, server, ssh)
             Some(actor)
         } catch {
             case e: Throwable => println("[" + server.ip + "] ERROR: ", e)
                 None
         }
     }
-    println("please press ENTER to stop")
-    try scala.io.StdIn.readLine
-    finally system.terminate()
+    if (actors.length == 0) throw new Error("FATAL ERROR: No Active connections")
 
+    val folder = Properties.envOrElse("HEADERS_FOLDER", "/opt/block-headers")
+    val dir = java.nio.file.Paths.get(folder)
+    Directory.walk(dir)
+      .map(_.toString) // convert from sun.nio.fs.WindowsPath$WindowsPathWithAttributes ?
+      .filter(_.endsWith(".json"))
+      .take(2)
+      .mapAsyncUnordered(1){ file =>
+          val jsonWithHeaders = scala.io.Source.fromFile(file).getLines.mkString("\n")
+          val headers = decode[List[ChainHeader]](jsonWithHeaders).right.getOrElse(Nil)
+          // println(file, headers.length)
+          starter ? SupervisorActor.Enqueue(headers)
+       }
+      .runForeach(_ => Future { "ok" })
+      .onComplete(_ => {
+          println(s"[${now}] FINISHED in ${secondsFrom(t0)}\n")
+      })
 }
 
