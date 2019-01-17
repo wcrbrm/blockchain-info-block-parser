@@ -35,10 +35,14 @@ object Runner extends App {
                 None
         }
     }
-    if (actors.length == 0) throw new Error("FATAL ERROR: No Active connections")
+    if (actors.length == 0)
+      throw new Error("FATAL ERROR: No Active connections")
 
     val folder = Properties.envOrElse("HEADERS_FOLDER", "/opt/block-headers")
     val dir = java.nio.file.Paths.get(folder)
+    if (!(new java.io.File(folder)).exists)
+      throw new Error(s"FATAL ERROR: ${folder} must be a folder")
+
     Directory.walk(dir)
       .map(_.toString) // convert from sun.nio.fs.WindowsPath$WindowsPathWithAttributes ?
       .filter(_.endsWith(".json"))

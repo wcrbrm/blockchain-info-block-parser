@@ -30,7 +30,7 @@ class SupervisorActor extends Actor with ActorLogging {
 
     case WorkerActor.NewWorker(index, server, ssh) =>
       val child = context.actorOf(WorkerActor.props(server, ssh), s"${index}")
-      child ? WorkerActor.UploadAgent
+      child ! WorkerActor.UploadAgent
 
     case WorkerActor.GimmeWork =>
       println("GIMME WORK request from " + sender)

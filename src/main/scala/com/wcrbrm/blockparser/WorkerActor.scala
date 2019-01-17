@@ -20,7 +20,7 @@ case class WorkerActor(server: Server, conn: SSH) extends Actor with ActorLoggin
       if (!agentFile.exists) throw new Exception("Agent File was not found for uploading")
 
       // WARNING: sender is wrong
-      log.info("[" + server.ip + "] connected, uploading. sender=", sender())
+      log.info("[" + server.ip + "] connected, uploading. sender={}", sender())
       conn.scp { case scp =>
         scp.send(agentFile, "/tmp/blockreader")
         conn.execute("chmod +x /tmp/blockreader")
