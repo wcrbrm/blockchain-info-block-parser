@@ -7,13 +7,16 @@ object WorkerActor {
   final case object UploadAgent
   final case object GimmeWork
   final case class NewWorker(index: Int, server: Server, conn: SSH)
-  final case class Work(command: String)
+  final case class WorkStart(command: String)
   final case class WorkComplete(result: Tuple2[_, _])
 }
 
 case class WorkerActor(server: Server, conn: SSH) extends Actor with ActorLogging {
   import WorkerActor._
   val agentFile = new java.io.File("./agent/blockreader")
+
+  override def preStart(): Unit = log.info("Worker actor started {}", server.ip)
+  override def postStop(): Unit = log.info("Worker actor stopped {}", server.ip)
 
   override def receive = {
     case UploadAgent =>
@@ -28,9 +31,7 @@ case class WorkerActor(server: Server, conn: SSH) extends Actor with ActorLoggin
       }
       sender ! GimmeWork
     case Work(work: String) =>
-      sender ! WorkComplete(doWork(work))
-  }
-  def doWork(work: String): Tuple2[_, _] = {
-    conn.executeWithStatus(work)
+      sender ! WorkComplete(conn.executeWithStatus(work))
+      // sender ! GimmeWork
   }
 }
