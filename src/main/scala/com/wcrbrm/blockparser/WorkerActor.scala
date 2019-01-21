@@ -1,14 +1,17 @@
 package com.wcrbrm.blockparser
 import akka.actor.{ Actor, ActorLogging, ActorSystem, Props }
 import fr.janalyse.ssh._
+import scala.concurrent.duration._
+
 
 object WorkerActor {
   def props(server: Server, conn: SSH): Props = Props(new WorkerActor(server, conn))
   final case object UploadAgent
   final case object GimmeWork
+  final case object WakeUp
   final case class NewWorker(index: Int, server: Server, conn: SSH)
   final case class WorkStart(command: String)
-  final case class WorkComplete(result: Tuple2[_, _])
+  final case class WorkComplete(result: Tuple2[String, Int])
 }
 
 case class WorkerActor(server: Server, conn: SSH) extends Actor with ActorLogging {
@@ -30,8 +33,12 @@ case class WorkerActor(server: Server, conn: SSH) extends Actor with ActorLoggin
         log.info("[" + server.ip + "] " + conn.execute("uptime") + " for " + sender() )
       }
       sender ! GimmeWork
-    case Work(work: String) =>
+
+    case WorkStart(work: String) =>
       sender ! WorkComplete(conn.executeWithStatus(work))
-      // sender ! GimmeWork
+      sender ! GimmeWork
+
+    case WakeUp =>
+      sender ! GimmeWork
   }
 }
