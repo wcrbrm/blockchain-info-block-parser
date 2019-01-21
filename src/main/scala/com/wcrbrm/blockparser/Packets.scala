@@ -4,7 +4,7 @@ import io.circe._
 import io.circe.generic.semiauto._
 
 case class AbstractPacket(packet: String, time: Long)
-case class AmountsPacket(packet: String, time: Long, hash: String, values: List[BigInt])
+case class AmountsPacket(packet: String, time: Long, hash: String, prev: String, values: List[BigInt])
 case class ErrorPacket(packet: String, time: Long, result: String, error: String)
 
 object Packets {

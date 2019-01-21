@@ -53,7 +53,7 @@ object Runner extends App {
     Directory.walk(dir)
       .map(_.toString) // convert from sun.nio.fs.WindowsPath$WindowsPathWithAttributes ?
       .filter(_.endsWith(".json"))
-      .take(13)
+      // .take(100)
       .mapAsyncUnordered(1){ file =>
           val jsonWithHeaders = scala.io.Source.fromFile(file).getLines.mkString("\n")
           val headers = decode[List[ChainHeader]](jsonWithHeaders).right.getOrElse(Nil)

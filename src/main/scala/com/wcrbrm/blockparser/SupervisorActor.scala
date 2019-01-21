@@ -60,7 +60,7 @@ class SupervisorActor extends Actor with ActorLogging {
       child ! WorkerActor.UploadAgent
 
     case WorkerActor.GimmeWork =>
-      println("GIMME WORK request from " + sender)
+      println("GIMME WORK request from " + sender + ", " + buffer.size + " blocks left")
       var found = false
       while (!found) {
         if (buffer.isEmpty) {
@@ -90,7 +90,7 @@ class SupervisorActor extends Actor with ActorLogging {
       if (statusCode != 0) {
         log.error("Worker failed with status {}: {}", statusCode, stdout);
       } else {
-        log.info("Work complete {}", result)
+        log.debug("Work complete {}", result)
         decode[AbstractPacket](stdout) match {
           case Left(errPacket) =>
             log.error("packet reading failure: {}", errPacket)
