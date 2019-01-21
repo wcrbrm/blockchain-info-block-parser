@@ -5,9 +5,9 @@ import fr.janalyse.ssh.{SSH, SSHIdentity, SSHOptions}
 
 case class Server(
    id: Option[String],
-   realmId: String = "cluster0",
-   groupId: String = "production",
-   name: String,
+   realmId: Option[String] = Some("cluster0"),
+   groupId: Option[String] = Some("production"),
+   name: Option[String] = None,
    ip: String,
    tags: Option[List[String]] = None,
    comments: Option[String] = None,
