@@ -15,6 +15,7 @@ type AmountsPacket struct {
 	Type string `json:"packet"`
 	Time int64 `json:"time"`
 	Hash string `json:"hash"`
+	Prev string `json:"prev"`
 	Values []int64 `json:"values"`
 }
 type ErrorPacket struct {
@@ -78,61 +79,45 @@ func outputLatestBlockHeight() {
 }
 
 type TxOut struct {
-	AddrTagLink string `json: "addr_tag_link,omitempty"`
-	AddrTag     string `json: "addr_tag,omitempty"`
-	Spent bool `json: "spent"`
-	Index int64 `json: "tx_index"`
-	Type  int `json: "type"`
-	Addr  string `json: "addr"`
-	Value int64 `json: "value"`
-	N     int `json: "n"`
-	Script  string `json: "script"`
+	AddrTagLink string `json:"addr_tag_link,omitempty"`
+	AddrTag     string `json:"addr_tag,omitempty"`
+	Spent bool `json:"spent"`
+	Index int64 `json:"tx_index"`
+	Type  int `json:"type"`
+	Addr  string `json:"addr"`
+	Value int64 `json:"value"`
+	N     int `json:"n"`
+	Script  string `json:"script"`
 }
 
 type BlockTx struct {
-    Time     int64 `json: "time"`
-	Hash     string `json: "hash"`
-    LockTime int `json: "lock_time"`
-    Ver      int `json: "ver"`
-    Size     int `json: "size"`
-    Weight   int `json: "weight"`
-    Index    int64 `json: "tx_index"`
-	InSz     int `json: "vin_sz"`
-	OutSz    int `json: "vout_sz"`
-	Out []TxOut `json: "out"`
+    Time     int64 `json:"time"`
+	Hash     string `json:"hash"`
+    LockTime int `json:"lock_time"`
+    Ver      int `json:"ver"`
+    Size     int `json:"size"`
+    Weight   int `json:"weight"`
+    Index    int64 `json:"tx_index"`
+	InSz     int `json:"vin_sz"`
+	OutSz    int `json:"vout_sz"`
+	Out []TxOut `json:"out"`
 }
 type Block struct {
-    Hash string `json: "hash"`
-	Ver int64 `json: "ver"`
-	PrevBlock string `json: "prev_block"`
-	Time int64 `json: "time"`
-	ReceivedTime int64 `json: "received_time"`
-	Bits int64 `json: "bits"`
-	Height int64 `json: "height"`
-	Nonce int64 `json: "nonce"`
-	NTx int `json: "n_tx"`
-	Size int64 `json: "size"`
-	Index int64 `json: "block_index"`
-	RelayedBy string `json: "relayed_by"`
-	Tx []BlockTx `json: "tx"`
+    Hash string `json:"hash"`
+	Ver int64 `json:"ver"`
+	Prev string `json:"prev_block"`
+	Time int64 `json:"time"`
+	ReceivedTime int64 `json:"received_time"`
+	Bits int64 `json:"bits"`
+	Height int64 `json:"height"`
+	Nonce int64 `json:"nonce"`
+	NTx int `json:"n_tx"`
+	Size int64 `json:"size"`
+	Index int64 `json:"block_index"`
+	RelayedBy string `json:"relayed_by"`
+	Tx []BlockTx `json:"tx"`
 }
 
-/*
-func getBlockByHash(hash string) (obj *Block, erro error) {
- 	url := "https://blockchain.info/rawblock/hash/" + hash
- 	timeout := time.Duration(20 * time.Second)
- 	client := http.Client{Timeout: timeout}
-	response, err := client.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	errDecode := json.NewDecoder(jsonFile).Decode(&res)
-	if errDecode != nil {
-		return nil, errDecode
-	}
-    return res, nil
-}*/
 
 type byValue []int64
 func (f byValue) Len() int { return len(f) }
@@ -157,15 +142,14 @@ func main() {
 		errorOutput("remote:read", err)
 		defer response.Body.Close()
 		// defer response.Close()
-	
+
 		errDecode := json.NewDecoder(response.Body).Decode(&res)
 		errorOutput("json:decode", errDecode)
-	
 		var exists = struct{}{}
 		set := make(map[int64]struct{})
 		for _, tx := range res.Tx {
 			for _, out := range tx.Out {
-				if (out.Value > 10e8) {
+				if (out.Value > 0) {
 					_, contains := set[out.Value]
 					if (!contains) { set[out.Value] = exists }
 				}
@@ -175,7 +159,7 @@ func main() {
 		for v := range set { values = append(values, v) }
 		sort.Sort(byValue(values))
 
-		str, _ := json.Marshal(&AmountsPacket{ "amounts", time.Now().Unix(), *hashPtr, values })
+		str, _ := json.Marshal(&AmountsPacket{ "amounts", time.Now().Unix(), res.Hash, res.Prev, values })
 		fmt.Println(string(str))
 
 	} else {
