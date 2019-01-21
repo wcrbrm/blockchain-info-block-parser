@@ -36,7 +36,7 @@ class SupervisorActor extends Actor with ActorLogging {
       .append(hash.substring( hash.length - 3 ) ).toString
   }
   def getHashFile(hash: String): File = {
-    val sb = new StringBuffer(getHashDir(hash)).append( "/" ).append(hash).append(".json").toString
+    val sb = new StringBuffer(getHashDir(hash)).append( "/" ).append(hash).append(".json.gz").toString
     new File(sb)
   }
   def saveHashFile(hash: String, contents: String): Unit = {
@@ -44,7 +44,7 @@ class SupervisorActor extends Actor with ActorLogging {
     log.debug("Saving HASH for {}, {} bytes", file.getAbsolutePath, contents)
     val dir = new File(getHashDir(hash))
     if (!dir.exists) dir.mkdirs
-    new PrintWriter(file.getAbsolutePath) { write(contents); close() }
+    Gzip.compress(contents.getBytes, file)
   }
   def isDownloaded(hash: String): Boolean = getHashFile(hash).exists
 
