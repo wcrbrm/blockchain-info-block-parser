@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"sort"
+_	"sort"
 	"time"
 )
 
@@ -16,7 +16,7 @@ type AmountsPacket struct {
 	Time int64 `json:"time"`
 	Hash string `json:"hash"`
 	Prev string `json:"prev"`
-	Values []int64 `json:"values"`
+	Values map[int64]int `json:"values"`
 }
 type ErrorPacket struct {
 	Type string `json:"packet"`
@@ -145,21 +145,18 @@ func main() {
 
 		errDecode := json.NewDecoder(response.Body).Decode(&res)
 		errorOutput("json:decode", errDecode)
-		var exists = struct{}{}
-		set := make(map[int64]struct{})
+		mapValues := make(map[int64]int)
 		for _, tx := range res.Tx {
 			for _, out := range tx.Out {
 				if (out.Value > 0) {
-					_, contains := set[out.Value]
-					if (!contains) { set[out.Value] = exists }
+					_, contains := mapValues[out.Value]
+					if (!contains) { mapValues[out.Value] = 0 }
+					mapValues[out.Value] ++
 				}
 			}
 		}
-		values := make([]int64, 0, len(set))
-		for v := range set { values = append(values, v) }
-		sort.Sort(byValue(values))
 
-		str, _ := json.Marshal(&AmountsPacket{ "amounts", time.Now().Unix(), res.Hash, res.Prev, values })
+		str, _ := json.Marshal(&AmountsPacket{ "amounts", time.Now().Unix(), res.Hash, res.Prev, mapValues })
 		fmt.Println(string(str))
 
 	} else {
