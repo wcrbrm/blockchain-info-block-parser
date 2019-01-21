@@ -1,0 +1,18 @@
+version: '3'
+services:
+  db:
+    image: postgres:11.1-alpine
+    env_file:
+      .env
+    volumes:
+      - ./psql_schema.sql:/docker-entrypoint-initdb.d/psql_schema.sql
+    ports:
+      - 5432:5432
+  adminer:
+    image: adminer
+    env_file:
+      .env
+    links:
+      - db
+    ports:
+      - 9000:8080
