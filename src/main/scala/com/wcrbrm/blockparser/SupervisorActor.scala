@@ -41,7 +41,7 @@ class SupervisorActor extends Actor with ActorLogging {
   }
   def saveHashFile(hash: String, contents: String): Unit = {
     val file = getHashFile(hash)
-    log.debug("Saving HASH for {}, {} bytes", file.getAbsolutePath, contents)
+    log.info("Saving HASH for {}, {} bytes", file.getAbsolutePath, contents.length)
     val dir = new File(getHashDir(hash))
     if (!dir.exists) dir.mkdirs
     Gzip.compress(contents.getBytes, file)
@@ -62,18 +62,26 @@ class SupervisorActor extends Actor with ActorLogging {
     case WorkerActor.GimmeWork =>
       println("GIMME WORK request from " + sender + ", " + buffer.size + " blocks left")
       var found = false
+      var alredyDownloaded = 0
       while (!found) {
         if (buffer.isEmpty) {
           log.info("NO MORE WORK")
           found = true
           implicit val executionContext: ExecutionContext = context.dispatcher
-          context.system.scheduler.scheduleOnce(10.seconds)(sender ! WorkerActor.WakeUp)
+          context.system.scheduler.scheduleOnce(10.seconds){
+            log.info("WAKE UP, {}", sender)
+            sender ! WorkerActor.WakeUp
+          }
         } else {
           val theLast: ChainHeader = buffer.last
           buffer.remove(buffer.length - 1)
           // whether we already have the hash ready
           if (isDownloaded(theLast.hash)) {
             found = false
+            alredyDownloaded += 1
+            if (alredyDownloaded % 1000 == 0) {
+              log.info("{} blocks are already downloaded", alredyDownloaded)
+            }
             // TODO: handle the amounts - from the local file
           } else {
             found = true
@@ -103,7 +111,7 @@ class SupervisorActor extends Actor with ActorLogging {
                   case Left(err) =>
                     log.error("amounts packet: {}", err)
                   case Right(a) =>
-                    saveHashFile(a.hash, stdout)
+                    if (!a.hash.isEmpty) saveHashFile(a.hash, stdout)
                     // TODO: add block handling
                 }
             }
