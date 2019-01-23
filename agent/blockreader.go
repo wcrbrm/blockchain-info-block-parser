@@ -156,7 +156,7 @@ func main() {
 			}
 		}
 
-		str, _ := json.Marshal(&AmountsPacket{ "amounts", time.Now().Unix(), res.Hash, res.Prev, mapValues })
+		str, _ := json.Marshal(&AmountsPacket{ "amounts", res.Time, res.Hash, res.Prev, mapValues })
 		fmt.Println(string(str))
 
 	} else {
